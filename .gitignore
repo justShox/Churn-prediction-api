@@ -1,0 +1,29 @@
+cat > .gitignore << 'EOF'
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+
+# Large data files — заливаем только raw
+data/processed/
+data/train_test/
+
+# Models — опционально, они большие
+# models/
+EOF
