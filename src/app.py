@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
-# ── Загрузка модели и скейлера ──────────────────────────────────────────────
+
 BASE_DIR = Path(__file__).parent.parent
 model  = joblib.load(BASE_DIR / 'models' / 'catboost_model.pkl')
 scaler = joblib.load(BASE_DIR / 'models' / 'scaler.pkl')
@@ -19,7 +19,7 @@ app = FastAPI(
     version='1.0.0'
 )
 
-# ── Схема входных данных ─────────────────────────────────────────────────────
+
 class CustomerData(BaseModel):
     кредитный_рейтинг:  float = Field(..., ge=300, le=850,  json_schema_extra={'example': 650.0})
     город:              str   = Field(...,                   json_schema_extra={'example': 'Алматы'})
@@ -49,23 +49,20 @@ class CustomerData(BaseModel):
             raise ValueError(f'пол должен быть одним из: {allowed}')
         return v
 
-# ── Схема ответа ─────────────────────────────────────────────────────────────
+
 class PredictionResponse(BaseModel):
     churn_probability: float
     prediction:        int
     risk_level:        str
 
-# ── Вспомогательная функция препроцессинга ───────────────────────────────────
 def preprocess(data: CustomerData) -> pd.DataFrame:
     df = pd.DataFrame([data.dict()])
 
-    # OHE для города и пола (drop_first=True — как при обучении)
     df['город_Астана'] = int(df['город'].iloc[0] == 'Астана')
     df['город_Атырау'] = int(df['город'].iloc[0] == 'Атырау')
     df['пол_Male']     = int(df['пол'].iloc[0] == 'Male')
     df = df.drop(columns=['город', 'пол'])
 
-    # Порядок признаков как при обучении
     feature_order = [
         'кредитный_рейтинг', 'возраст', 'стаж_в_банке', 'баланс_депозита',
         'число_продуктов', 'есть_кредитка', 'активный_клиент',
@@ -76,7 +73,7 @@ def preprocess(data: CustomerData) -> pd.DataFrame:
 
     return df
 
-# ── Эндпоинты ────────────────────────────────────────────────────────────────
+# Эндпоинты ────────────────────────────────────────────────────────────────
 @app.get('/')
 def root():
     return {'message': 'Churn Prediction API is running'}
