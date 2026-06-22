@@ -55,7 +55,7 @@ CatBoost (tuned) — FINAL MODEL:
   ROC-AUC:   0.9345
   Gini:      0.8690
   KS:        ~0.72
-  AUC-PR:    0.8172
+  AUC-PR:    0.8178
   F1:        0.7164
   Precision: 0.6167
   Recall:    0.8546
@@ -119,7 +119,7 @@ Calibration set: 50% of test
 Evaluation set: 50% of test
 
 Brier Score before: 0.1006
-Brier Score after:  0.772
+Brier Score after:  0.0772
 
 
 7. API
