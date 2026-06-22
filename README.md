@@ -7,105 +7,134 @@
 
 ## Результаты модели
 
-### Основные метрики (CatBoost tuned, calibrated)
+### Метрики финальной модели (CatBoost tuned + calibrated)
 
-| Метрика    | Train  | Test   | Gap     |
-|------------|:------:|:------:|:-------:|
-| ROC-AUC    | 0.9435 | 0.9346 | +0.0089 |
-| AUC-PR     | 0.8535 | 0.8186 | +0.0349 |
-| KS         | 0.7396 | 0.7218 | +0.0178 |
-| F1         | 0.7346 | 0.7124 | +0.0222 |
-| Precision  | 0.6401 | 0.6142 | +0.0259 |
-| Recall     | 0.8618 | 0.8480 | +0.0138 |
-| CV ROC-AUC | 0.9369 ± 0.0043 |
+| Метрика    | Значение |
+|------------|:--------:|
+| ROC-AUC    | 0.9345   |
+| Gini       | 0.8690   |
+| KS         | ~0.72    |
+| AUC-PR     | 0.8172   |
+| F1         | 0.7164   |
+| Precision  | 0.6167   |
+| Recall     | 0.8546   |
+| Gap        | 0.0093   |
 
-### Сравнение моделей
+### Сравнение 9 моделей
 
-| Метрика    | Logistic Regression | Decision Tree | Random Forest | CatBoost (tuned) |
-|------------|:-------------------:|:-------------:|:-------------:|:----------------:|
-| ROC-AUC    | 0.8823              | 0.9186        | 0.9317        | **0.9346**       |
-| AUC-PR     | 0.6987              | 0.7788        | 0.7931        | **0.8186**       |
-| KS         | 0.6361              | 0.6999        | 0.7254        | **0.7218**       |
-| F1         | 0.6410              | 0.6924        | 0.7187        | **0.7124**       |
-| Precision  | 0.5330              | 0.5914        | 0.6395        | **0.6142**       |
-| Recall     | 0.8039              | 0.8350        | 0.8203        | **0.8480**       |
-
-> **Примечание:** CatBoost показывает лучший Recall (0.848) и наименьший gap train/test (0.0089), что говорит о минимальном переобучении по сравнению с другими моделями.
+| Модель             | Test AUC | Gini  | Gap    |
+|--------------------|:--------:|:-----:|:------:|
+| CatBoost (tuned)   | 0.9343   | 0.869 | 0.0099 |
+| RandomForest       | 0.9319   | 0.864 | 0.0248 |
+| CatBoost (base)    | 0.9313   | 0.863 | 0.0455 |
+| GradientBoosting   | 0.9310   | 0.862 | 0.0292 |
+| LogisticRegression | 0.9265   | 0.853 | -0.0002|
+| ExtraTrees         | 0.9265   | 0.853 | 0.0077 |
+| LightGBM           | 0.9226   | 0.845 | 0.0754 |
+| XGBoost            | 0.9150   | 0.830 | 0.0850 |
+| DecisionTree       | 0.9138   | 0.828 | 0.0368 |
 
 ### Калибровка
 
-| Метрика       | До калибровки | После калибровки |
-|---------------|:-------------:|:----------------:|
-| Brier Score   | 0.1008        | 0.0774           |
+| Метрика     | До     | После  |
+|-------------|:------:|:------:|
+| Brier Score | 0.1006 | 0.0772 |
 
-Калибровка через sigmoid (Platt scaling) делает предсказанные вероятности более точными.
-Метод: `CalibratedClassifierCV` с `FrozenEstimator`.
+---
+
+## Графики
+
+### ROC-кривая
+![ROC Curve](notebooks/graphs/roc_curve.png)
+
+### Precision-Recall кривая
+![PR Curve](notebooks/graphs/precision_recall_curve.png)
+
+### Confusion Matrix
+![Confusion Matrix](notebooks/graphs/confusion_matrix.png)
+
+### Calibration Curve
+![Calibration](notebooks/graphs/calibration_before_after.png)
+
+### SHAP Feature Importance
+![SHAP](notebooks/graphs/shap_summary_clean.png)
 
 ---
 
 ## Структура проекта
+
 ```
 churn-prediction/
 ├── data/
-│   ├── raw/                  # Исходные данные (TZ.csv, 15 000 записей)
-│   ├── processed/            # Очищенный датасет после EDA (churn_cleaned.csv)
-│   └── train_test/           # Train/test сплиты (scaled, feature-engineered)
+│   ├── raw/                    # Исходные данные (TZ.csv, 15 000 записей)
+│   ├── processed/              # Очищенный датасет после EDA
+│   └── train_test/             # Train/test сплиты
 ├── models/
-│   ├── pipeline.pkl          # Единый pipeline (preprocessing + модель + метрики)
-│   ├── catboost_model.pkl    # CatBoost модель (без калибровки)
-│   ├── catboost_model_calibrated.pkl  # CatBoost с калибровкой
-│   ├── preprocessing.pkl     # Артефакты препроцессинга
-│   └── scaler.pkl            # StandardScaler
+│   ├── pipeline.pkl            # Единый pipeline (preprocessing + модель + метрики)
+│   ├── catboost_model.pkl      # CatBoost (без калибровки)
+│   ├── catboost_model_calibrated.pkl  # CatBoost (с калибровкой)
+│   ├── preprocessing.pkl       # Артефакты препроцессинга
+│   └── scaler.pkl              # StandardScaler
 ├── notebooks/
-│   ├── 01_EDA.ipynb          # Разведочный анализ данных
-│   ├── 02_preprocessing.ipynb # Предобработка + Feature Engineering
-│   ├── 03_modeling.ipynb     # Обучение, калибровка, сравнение моделей
-│   ├── 04_validation.ipynb   # Валидация, SHAP, анализ порогов
-│   ├── BUSINESS_IMPACT_ANALYSIS.md  # Анализ бизнес-эффекта
-│   └── graphs/               # Визуализации
+│   ├── 01_EDA.ipynb            # Разведочный анализ данных
+│   ├── 02_preprocessing.ipynb  # Предобработка + Feature Engineering
+│   ├── 03_modeling.ipynb       # Обучение, калибровка, сравнение моделей
+│   ├── BUSINESS_IMPACT_ANALYSIS.md
+│   └── graphs/                 # Визуализации
 ├── src/
-│   ├── app.py                # FastAPI сервис
-│   └── train.py              # Production скрипт обучения
+│   ├── app.py                  # FastAPI сервис
+│   └── train.py                # Production скрипт обучения
 ├── Dockerfile
 ├── docker-compose.yml
+├── .dockerignore
 ├── requirements.txt
 └── README.md
 ```
 
 ---
 
-## Запуск проекта
+## Запуск
 
-### Вариант 1 — Docker (рекомендуется)
+### Docker (рекомендуется)
+
 ```bash
-git clone <your-repo-url>
-cd churn-prediction
+git clone https://github.com/justShox/Churn-prediction-api.git
+cd Churn-prediction-api
 docker compose up --build
 ```
 
-### Вариант 2 — Локально
+### Локально
+
 ```bash
-git clone <your-repo-url>
-cd churn-prediction
+git clone https://github.com/justShox/Churn-prediction-api.git
+cd Churn-prediction-api
 pip install -r requirements.txt
 python -m uvicorn src.app:app --reload
 ```
 
-После запуска сервис доступен по адресу: `http://localhost:8000`
-Swagger документация: `http://localhost:8000/docs`
+### Остановка Docker
+
+```bash
+docker compose down
+```
+
+После запуска:
+- Сервис: `http://localhost:8000`
+- Swagger: `http://localhost:8000/docs`
 
 ---
 
-## API Endpoints
+## API
 
-| Метод | Endpoint | Описание |
-|-------|----------|----------|
-| GET   | `/`      | Проверка работы сервиса |
-| GET   | `/health` | Health check |
-| POST  | `/predict` | Предсказание для одного клиента |
-| POST  | `/predict_batch` | Предсказание для нескольких клиентов |
+| Метод | Endpoint        | Описание |
+|-------|-----------------|----------|
+| GET   | `/`             | Статус сервиса |
+| GET   | `/health`       | Health check |
+| POST  | `/predict`      | Предсказание для одного клиента |
+| POST  | `/predict_batch`| Предсказание для нескольких клиентов |
 
-### Пример запроса `/predict`
+### Запрос
+
 ```bash
 curl -X POST "http://localhost:8000/predict" \
      -H "Content-Type: application/json" \
@@ -124,7 +153,8 @@ curl -X POST "http://localhost:8000/predict" \
      }'
 ```
 
-### Пример ответа
+### Ответ
+
 ```json
 {
   "churn_probability": 0.87,
@@ -133,53 +163,55 @@ curl -X POST "http://localhost:8000/predict" \
 }
 ```
 
-### Описание полей ответа
+| Поле | Описание |
+|------|----------|
+| `churn_probability` | Вероятность оттока (0–1) |
+| `prediction` | 1 — уйдёт, 0 — останется |
+| `risk_level` | `low` (<0.4), `medium` (0.4–0.7), `high` (>0.7) |
 
-| Поле | Тип | Описание |
-|------|-----|----------|
-| `churn_probability` | float | Вероятность оттока от 0 до 1 (откалиброванная) |
-| `prediction` | int | Бинарный прогноз (1 — уйдёт, 0 — останется) |
-| `risk_level` | string | Уровень риска: `low` (<0.4), `medium` (0.4–0.7), `high` (>0.7) |
+### Переключение калибровки
+
+В `src/app.py`:
+```python
+USE_CALIBRATED = True   #False = без калибровки
+```
+
+### Изменение порога
+
+В `src/app.py`:
+```python
+pred = int(prob >= 0.5)  # ← меняешь порог
+```
 
 ---
 
 ## Ключевые выводы
 
 ### SHAP — топ факторов оттока
-1. **Число продуктов** — 1 продукт = высокий риск, 2+ = удержание
+1. **Число продуктов** — 1 продукт = высокий риск
 2. **Возраст** — старше 45 лет = выше риск
-3. **Активность** — неактивные клиенты уходят чаще
-4. **Пол** — женщины уходят вдвое чаще (28.3% vs 14.1%)
-5. **Город** — Атырау: 42% оттока vs 15-16% в других городах
+3. **Город Атырау** — 42% оттока vs 15-16% в других
+4. **Активность** — неактивные уходят чаще
+5. **Пол** — женщины уходят вдвое чаще (28% vs 14%)
 
 ### Портрет клиента группы риска
 Женщина 45+, из Атырау, неактивная, с 1 продуктом и депозитом.
 
 ### Анализ порогов
 
-| Threshold | Precision | Recall | F1    | FP    | FN   |
-|-----------|-----------|--------|-------|-------|------|
-| 0.05      | 0.267     | 0.995  | 0.421 | 1673  | 3    |
-| 0.20      | 0.413     | 0.962  | 0.578 | 837   | 23   |
-| 0.44      | 0.581     | 0.882  | 0.701 | 389   | 72   |
-| 0.50      | 0.614     | 0.848  | 0.712 | 326   | 93   |
-| 0.70      | 0.755     | 0.729  | 0.741 | 145   | 166  |
-| 0.80      | 0.814     | 0.629  | 0.710 | 88    | 227  |
-
-> - Лучший порог по KS: **0.44** (KS = 0.719)
-> - Лучший порог по F1: **0.70** (F1 = 0.741)
-> - Дефолтный порог: **0.50** (F1 = 0.712)
-
-### Бизнес-эффект
-- Без модели: 3,058 ушедших = полная потеря
-- С моделью (threshold=0.5): удерживаем 2,615 клиентов (85.5%)
-- ROI при threshold=0.5: **~248%**
+| Threshold | Precision | Recall | F1    | Specificity |
+|-----------|-----------|--------|-------|-------------|
+| 0.30      | 0.486     | 0.941  | 0.641 | 0.299       |
+| 0.40      | 0.557     | 0.897  | 0.688 | 0.614       |
+| 0.50      | 0.617     | 0.855  | 0.716 | 0.731       |
+| 0.60      | 0.686     | 0.793  | 0.735 | 0.840       |
+| 0.70      | 0.755     | 0.729  | 0.741 | 0.939       |
 
 ---
 
-## Стек технологий
+## Стек
 
-- **ML:** CatBoost, Scikit-learn, SHAP, Optuna, scipy (KS-test)
+- **ML:** CatBoost, Scikit-learn, SHAP, Optuna, scipy
 - **API:** FastAPI, Uvicorn, Pydantic
-- **Инфраструктура:** Docker, Docker Compose
-- **Анализ данных:** Pandas, NumPy, Matplotlib, Seaborn
+- **Docker:** Docker, Docker Compose
+- **Данные:** Pandas, NumPy, Matplotlib, Seaborn
