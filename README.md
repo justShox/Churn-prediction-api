@@ -42,25 +42,6 @@
 
 ---
 
-## Графики
-
-### ROC-кривая
-![ROC Curve](notebooks/graphs/roc_curve.png)
-
-### Precision-Recall кривая
-![PR Curve](notebooks/graphs/precision_recall_curve.png)
-
-### Confusion Matrix
-![Confusion Matrix](notebooks/graphs/confusion_matrix.png)
-
-### Calibration Curve
-![Calibration](notebooks/graphs/calibration_before_after.png)
-
-### SHAP Feature Importance
-![SHAP](notebooks/graphs/shap_summary_clean.png)
-
----
-
 ## Структура проекта
 
 ```
@@ -206,6 +187,25 @@ pred = int(prob >= 0.5)  # ← меняешь порог
 | 0.50      | 0.617     | 0.855  | 0.716 | 0.731       |
 | 0.60      | 0.686     | 0.793  | 0.735 | 0.840       |
 | 0.70      | 0.755     | 0.729  | 0.741 | 0.939       |
+
+---
+
+## Графики
+
+### ROC-кривая
+![ROC Curve](notebooks/graphs/roc_curve.png)
+
+### Precision-Recall кривая
+![PR Curve](notebooks/graphs/precision_recall_curve.png)
+
+### Confusion Matrix
+![Confusion Matrix](notebooks/graphs/confusion_matrix.png)
+
+### Calibration Curve
+![Calibration](notebooks/graphs/calibration_before_after.png)
+
+### SHAP Feature Importance
+![SHAP](notebooks/graphs/shap_summary_clean.png)
 
 ---
 
