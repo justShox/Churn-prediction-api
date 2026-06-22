@@ -1,0 +1,11 @@
+.venv/
+.idea/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store
+notebooks/
+data/raw/
+data/processed/
+data/train_test/
+.git/

@@ -10,120 +10,119 @@ Features after cleaning: 11 input + 1 target (ушел_из_банка)
 Churn rate: 20.4% (3,058 churned / 15,000 total)
 Class ratio: 1:3.9 (retained:churned)
 
-Feature list (final 12):
-  1. кредитный_рейтинг (float, 300–850)
-  2. город (categorical: Алматы, Астана, Атырау)
-  3. пол (categorical: Male, Female)
-  4. возраст (float, 18–100)
-  5. стаж_в_банке (float, 0–50)
-  6. баланс_депозита (float, 64.6% NaN → filled with 0)
-  7. число_продуктов (float, 1–4)
-  8. есть_кредитка (binary: 0/1)
-  9. активный_клиент (binary: 0/1)
-  10. оценочная_зарплата (float)
-  11. есть_депозит (binary, derived from баланс_депозита notna)
-  12. OHE: город_Астана, город_Атырау, пол_Male
-
 Split: 80/20, stratified, random_state=42
 Train: 12,000 | Test: 3,000
 
 
-2. MODEL METRICS (Train / Test)
--------------------------------
+2. FEATURE ENGINEERING (02_preprocessing.ipynb)
+----------------------------------------------
+Base features (11):
+  1. кредитный_рейтинг → credit_score (float, 300–850)
+  2. город → city (categorical: Алматы, Астана, Атырау)
+  3. пол → gender (categorical: Male, Female)
+  4. возраст → age (float, 18–100)
+  5. стаж_в_банке → years_with_bank (float, 0–50)
+  6. баланс_депозита → deposit_balance (float, 64.6% NaN → filled with 0)
+  7. число_продуктов → num_products (float, 1–4)
+  8. есть_кредитка → has_credit_card (binary: 0/1)
+  9. активный_клиент → is_active_member (binary: 0/1)
+  10. оценочная_зарплата → estimated_salary (float)
+  11. есть_депозит → has_deposit (binary, derived from баланс_депозита notna)
 
-Logistic Regression (baseline):
-  ROC-AUC:   0.8891 / 0.8823
-  AUC-PR:    0.7126 / 0.6987
-  KS:        0.6400 / 0.6361
-  F1:        0.6537 / 0.6410
-  Precision: 0.5499 / 0.5330
-  Recall:    0.8058 / 0.8039
-  Accuracy:  —     / 0.82
-  CV ROC-AUC: 0.8884 ± 0.0083
+OHE (3 features):
+  12. city_Астана
+  13. city_Атырау
+  14. gender_Male
 
-Decision Tree (max_depth=8):
-  ROC-AUC:   0.9482 / 0.9186
-  AUC-PR:    0.8604 / 0.7788
-  KS:        0.7436 / 0.6999
-  F1:        0.7375 / 0.6924
-  Precision: 0.6412 / 0.5914
-  Recall:    0.8679 / 0.8350
-  Accuracy:  —     / 0.85
+Feature Engineering (6 features):
+  15. product_risk_level — маппинг num_products: {1→2, 2→0, 3→3, 4→3}
+  16. balance_to_salary_ratio — deposit_balance / (estimated_salary + 1)
+  17. active_single_product — is_active==1 & num_products==1
+  18. loyal_high_balance — years_with_bank>=5 & deposit_balance>50000
+  19. young_no_card — age<30 & has_credit_card==0
+  20. age_tenure_interaction — age * years_with_bank
+  21. salary_products_interaction — estimated_salary * num_products
 
-Random Forest (n_estimators=300, max_depth=8):
-  ROC-AUC:   0.9575 / 0.9317
-  AUC-PR:    0.8794 / 0.7931
-  KS:        0.7826 / 0.7254
-  F1:        0.7797 / 0.7187
-  Precision: 0.7034 / 0.6395
-  Recall:    0.8745 / 0.8203
-  Accuracy:  —     / 0.87
+Dropped (multicollinearity): age_squared, age_group, credit_score_squared
+
+Final features: 19 (after dropping 3 multicollinear)
+
+
+3. MODEL METRICS (03_modeling.ipynb)
+-------------------------------------
 
 CatBoost (tuned) — FINAL MODEL:
-  ROC-AUC:   0.9435 / 0.9346
-  AUC-PR:    0.8535 / 0.8186
-  KS:        0.7396 / 0.7218
-  F1:        0.7346 / 0.7124
-  Precision: 0.6401 / 0.6142
-  Recall:    0.8618 / 0.8480
-  Accuracy:  —     / 0.86
-  CV ROC-AUC: 0.9369 ± 0.0043
+  ROC-AUC:   0.9345
+  Gini:      0.8690
+  KS:        ~0.72
+  AUC-PR:    0.8172
+  F1:        0.7164
+  Precision: 0.6167
+  Recall:    0.8546
+  Gap:       0.0093
 
-Brier Score (CatBoost, before calibration): 0.0997
-Brier Score (CatBoost, after calibration):  see 03_modeling.ipynb output
+All models comparison (sorted by Test AUC):
+  CatBoost_tuned:    AUC=0.9343 Gini=0.8686 KS=~0.72
+  RandomForest:      AUC=0.9319 Gini=0.8639
+  CatBoost_base:     AUC=0.9313 Gini=0.8626
+  GradientBoosting:  AUC=0.9310 Gini=0.8619
+  LogisticRegression: AUC=0.9265 Gini=0.8530
+  ExtraTrees:        AUC=0.9265 Gini=0.8530
+  LightGBM:          AUC=0.9226 Gini=0.8451
+  XGBoost:           AUC=0.9150 Gini=0.8299
+  DecisionTree:      AUC=0.9138 Gini=0.8276
+
+Brier Score (before calibration): 0.1006
+Brier Score (after calibration):  0.0772
 
 
-3. CATBOOST — BEST HYPERPARAMETERS
+4. CATBOOST — BEST HYPERPARAMETERS
 ------------------------------------
 Optuna trials: 50 (best trial: 47)
 CV: 3-fold stratified, scoring=roc_auc
 
 study.best_params:
   iterations:            603
-  learning_rate:         0.01206207957807276
+  learning_rate:         0.012
   depth:                 4
-  l2_leaf_reg:           7.595309648113901
-  bagging_temperature:   0.46863240680003493
-  random_strength:       0.13469751277532283
+  l2_leaf_reg:           7.6
+  bagging_temperature:   0.47
+  random_strength:       0.13
   auto_class_weights:    Balanced
   random_seed:           42
 
 CV ROC-AUC (mean ± std): 0.9369 ± 0.0043
-Best iteration: 602
 
 
-4. SHAP — FEATURE IMPORTANCE (top 12, descending)
----------------------------------------------------
-Values from 04_validation.ipynb shap_importance bar chart:
-
-  1. число_продуктов        — highest importance
-  2. возраст                — second highest
-  3. активный_клиент        — strong negative impact
-  4. пол_Male               — reduces churn risk
-  5. город_Атырау           — increases churn risk
-  6. баланс_депозита        — moderate
-  7. оценочная_зарплата     — low importance
-  8. кредитный_рейтинг      — low importance
-  9. есть_депозит           — low importance
-  10. город_Астана          — minimal
-  11. есть_кредитка         — minimal
-  12. стаж_в_банке          — minimal
-
-Note: exact mean |SHAP| values are computed dynamically in notebook
-(cell output not stored as text). Run the SHAP importance cell to see them.
+5. SHAP — FEATURE IMPORTANCE
+------------------------------
+Top features by mean |SHAP|:
+  1. product_risk_level  — highest
+  2. age                 — second
+  3. city_Атырау         — strong positive impact
+  4. is_active_member    — strong negative impact
+  5. gender_Male         — reduces churn risk
+  6. deposit_balance     — moderate
+  7. balance_to_salary_ratio — moderate
+  8. num_products        — moderate
+  9. has_deposit         — low
+  10. credit_score       — minimal
+  11. has_credit_card    — minimal
+  12. estimated_salary   — minimal
 
 
-5. CALIBRATION
+6. CALIBRATION
 --------------
 Method: CalibratedClassifierCV with sigmoid (Platt scaling)
-Sklearn version: 1.8.0 (cv='prefit' not supported, used FrozenEstimator)
+Sklearn FrozenEstimator (cv='prefit' not supported in sklearn 1.8.0)
+Calibration set: 50% of test
+Evaluation set: 50% of test
 
-Brier Score before calibration: 0.0997
-Brier Score after calibration:  see 03_modeling.ipynb output
-Lower Brier Score = better calibrated probabilities.
+Brier Score before: 0.1006
+Brier Score after:  0.772
 
 
-6. API
+7. API
 ------
 Endpoints:
   GET  /              — service status check
@@ -131,7 +130,7 @@ Endpoints:
   POST /predict       — single customer prediction
   POST /predict_batch — batch prediction (list of customers)
 
-Input features (CustomerData):
+Input features (CustomerData — русские названия):
   кредитный_рейтинг:  float (300–850)
   город:              str (Алматы | Астана | Атырау)
   пол:                str (Male | Female)
@@ -149,11 +148,20 @@ Output (PredictionResponse):
   prediction:         int    — binary (1=churn, 0=stay)
   risk_level:         str    — low (<0.4), medium (0.4–0.7), high (>0.7)
 
-Preprocessing in API:
-  - One-hot encode город → город_Астана, город_Атырау
-  - One-hot encode пол → пол_Male
-  - Drop original город, пол
-  - Feature order: кредитный_рейтинг, возраст, стаж_в_банке,
-    баланс_депозита, число_продуктов, есть_кредитка,
-    активный_клиент, оценочная_зарплата, есть_депозит,
-    город_Астана, город_Атырау, пол_Male
+Preprocessing in API (app.py pipeline):
+  1. OHE: город → city_Астана, city_Атырау; пол → gender_Male
+  2. Feature Engineering: 9 признаков (product_risk_level, age_group, age_squared, ...)
+  3. Rename Rus → Eng (column_mapping из preprocessing.pkl)
+  4. Scaler (StandardScaler из preprocessing.pkl)
+  5. Reorder к final_features (автоматически удаляет age_squared, age_group)
+
+Threshold: 0.5 (default), переключается через USE_CALIBRATED в app.py
+
+
+8. SAVED ARTIFACTS
+-------------------
+models/pipeline.pkl              — unified pipeline (preprocessing + model + metrics)
+models/catboost_model.pkl        — CatBoost (uncalibrated)
+models/catboost_model_calibrated.pkl — CatBoost (calibrated)
+models/preprocessing.pkl         — column_mapping, ohe_columns, final_features, scaler
+models/scaler.pkl                — StandardScaler (legacy)

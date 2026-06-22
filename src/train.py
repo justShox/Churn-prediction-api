@@ -3,15 +3,15 @@ train.py — standalone скрипт для обучения модели.
 
 Представляет собой Production-ready версию пайплайна из ноутбуков:
     - 01_EDA.ipynb → предобработка и очистка данных
-    - 02_preprocessing.ipynb → кодирование и масштабирование
+    - 02_preprocessing.ipynb → кодирование, FE, масштабирование
     - 03_modeling.ipynb → подбор гиперпараметров и обучение
 
 Использование:
     python src/train.py
 
 Результат:
-    models/catboost_model.pkl — обученная модель
-    models/scaler.pkl — fitted StandardScaler
+    models/catboost_model.pkl     — обученная модель
+    models/preprocessing.pkl      — артефакты препроцессинга
 """
 
 import pandas as pd
@@ -29,7 +29,7 @@ optuna.logging.set_verbosity(optuna.logging.WARNING)
 
 # ── Пути ────────────────────────────────────────────────────────────────────
 BASE_DIR   = Path(__file__).parent.parent
-DATA_PATH  = BASE_DIR / 'data' / 'raw' / 'TZ.csv'
+DATA_PATH  = BASE_DIR / 'data' / 'processed' / 'churn_cleaned.csv'
 MODELS_DIR = BASE_DIR / 'models'
 MODELS_DIR.mkdir(exist_ok=True)
 
@@ -41,24 +41,49 @@ print(f"   Размер датасета: {df.shape}")
 # ── 2. Предобработка ─────────────────────────────────────────────────────────
 print("\n⚙️  Предобработка...")
 
-# Удаляем нерелевантные признаки
-df = df.drop(columns=['ID', 'ID_клиента', 'фамилия'], errors='ignore')
+# Переименование Rus → Eng
+COLUMN_MAPPING = {
+    'кредитный_рейтинг': 'credit_score',
+    'город': 'city',
+    'пол': 'gender',
+    'возраст': 'age',
+    'стаж_в_банке': 'years_with_bank',
+    'баланс_депозита': 'deposit_balance',
+    'число_продуктов': 'num_products',
+    'есть_кредитка': 'has_credit_card',
+    'активный_клиент': 'is_active_member',
+    'оценочная_зарплата': 'estimated_salary',
+    'ушел_из_банка': 'target',
+    'есть_депозит': 'has_deposit'
+}
+df = df.rename(columns=COLUMN_MAPPING)
 
 # Флаг наличия депозита + заполнение пропусков
-df['есть_депозит']  = df['баланс_депозита'].notna().astype(int)
-df['баланс_депозита'] = df['баланс_депозита'].fillna(0)
+df['has_deposit'] = df['deposit_balance'].notna().astype(int)
+df['deposit_balance'] = df['deposit_balance'].fillna(0)
 
-# OHE для категориальных признаков
-df = pd.get_dummies(df, columns=['город', 'пол'], drop_first=True)
+# OHE
+df = pd.get_dummies(df, columns=['city', 'gender'], drop_first=True)
 bool_cols = df.select_dtypes(include='bool').columns
 df[bool_cols] = df[bool_cols].astype(int)
 
-print(f"   Признаков после предобработки: {df.shape[1] - 1}")
+# Feature Engineering
+risk_mapping = {1.0: 2, 2.0: 0, 3.0: 3, 4.0: 3}
+df['product_risk_level'] = df['num_products'].map(risk_mapping)
+df['balance_to_salary_ratio'] = df['deposit_balance'] / (df['estimated_salary'] + 1)
+df['active_single_product'] = ((df['is_active_member'] == 1) & (df['num_products'] == 1)).astype(int)
+df['loyal_high_balance'] = ((df['years_with_bank'] >= 5) & (df['deposit_balance'] > 50000)).astype(int)
+df['young_no_card'] = ((df['age'] < 30) & (df['has_credit_card'] == 0)).astype(int)
+df['age_tenure_interaction'] = df['age'] * df['years_with_bank']
+df['salary_products_interaction'] = df['estimated_salary'] * df['num_products']
+df['age_squared'] = df['age'] ** 2
+
+print(f"   Признаков после FE: {df.shape[1] - 1}")
 
 # ── 3. Разделение на train/test ──────────────────────────────────────────────
 print("\n✂️  Разделение на train/test (80/20)...")
-X = df.drop(columns=['ушел_из_банка'])
-y = df['ушел_из_банка']
+X = df.drop(columns=['target'])
+y = df['target']
 
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42, stratify=y
@@ -68,13 +93,23 @@ print(f"   Доля оттока — train: {y_train.mean():.3f} | test: {y_test
 
 # ── 4. Масштабирование ───────────────────────────────────────────────────────
 print("\n📏 Масштабирование числовых признаков...")
-num_cols = ['кредитный_рейтинг', 'возраст', 'стаж_в_банке',
-            'баланс_депозита', 'оценочная_зарплата']
+NUM_COLS = ['credit_score', 'age', 'years_with_bank', 'deposit_balance', 'estimated_salary',
+            'balance_to_salary_ratio', 'age_tenure_interaction', 'salary_products_interaction',
+            'age_squared', 'product_risk_level', 'age_group']
+
+# Удаляем age_group если его нет (он может быть добавлен через pd.cut)
+NUM_COLS = [c for c in NUM_COLS if c in X_train.columns]
 
 scaler = StandardScaler()
-scaler.fit(X_train[num_cols])
-joblib.dump(scaler, MODELS_DIR / 'scaler.pkl')
-print("   Скейлер сохранён → models/scaler.pkl")
+X_train[NUM_COLS] = scaler.fit_transform(X_train[NUM_COLS])
+X_test[NUM_COLS]  = scaler.transform(X_test[NUM_COLS])
+
+# Удаляем мультиколлинеарные признаки
+FEATURES_TO_DROP = ['age_squared', 'age_group']
+X_train = X_train.drop(columns=FEATURES_TO_DROP, errors='ignore')
+X_test  = X_test.drop(columns=FEATURES_TO_DROP, errors='ignore')
+
+print(f"   Финальных признаков: {X_train.shape[1]}")
 
 # ── 5. Подбор гиперпараметров (Optuna) ──────────────────────────────────────
 print("\n🔍 Подбор гиперпараметров (Optuna, 50 trials)...")
@@ -122,7 +157,19 @@ metrics = {
 for k, v in metrics.items():
     print(f"   {k:<12}: {v}")
 
-# ── 8. Сохранение модели ─────────────────────────────────────────────────────
+# ── 8. Сохранение ────────────────────────────────────────────────────────────
 joblib.dump(model, MODELS_DIR / 'catboost_model.pkl')
-print("\n Модель сохранена → models/catboost_model.pkl")
+
+OHE_COLUMNS = ['city', 'gender']
+preprocessing_artifacts = {
+    'column_mapping': COLUMN_MAPPING,
+    'ohe_columns': OHE_COLUMNS,
+    'final_features': list(X_train.columns),
+    'scaler': scaler,
+}
+joblib.dump(preprocessing_artifacts, MODELS_DIR / 'preprocessing.pkl')
+
+print(f"\n✅ Модель сохранена → models/catboost_model.pkl")
+print(f"✅ Препроцессинг сохранён → models/preprocessing.pkl")
+print(f"   Фичи: {list(X_train.columns)}")
 print("Обучение завершено!")
